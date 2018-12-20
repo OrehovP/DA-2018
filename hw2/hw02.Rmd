@@ -1,0 +1,159 @@
+# Домашнее задание № 2
+_Студент: Орехов Павел Вадимович группы РИ-450004_
+
+## Основы исследовательского анализа данных.
+
+## Исходные данные
+
+По адресу https://raw.githubusercontent.com/SergeyMirvoda/da2016/master/data/calif_penn_2011.csv можно получить набор данных, 
+содержащий информацию о домовладениях в Калифорнии и Пенсильвании за 2011г. Информация сгруппированна по зонам переписи ([Census tracts](https://en.wikipedia.org/wiki/Census_tract)).
+
+>В построении диаграмм может помочь книга [The R Cookbook](http://shop.oreilly.com/product/9780596809164.do). Рецепты 10.1 и 10.2.
+
+### Загрузка и очистка данных
+- Загрузите данные в датафрейм, который назовите ``data``.
+```{r}
+data <- read.csv("https://raw.githubusercontent.com/SergeyMirvoda/da2016/master/data/calif_penn_2011.csv")
+```
+
+- Сколько строк и столбцов в ``data``?
+```{r}
+nrow(data)
+ncol(data)
+```
+_11275 строк и 34 столбца_
+
+- Выполните следующую команду и объясните, что она делает.
+```{r}
+colSums(apply(data, c(1,2), is.na))
+```
+_Функция подсчитывает количество отсутствующих значений в каждом столбце_
+
+- Функция ``na.omit()`` принимает датафрейм и возвращает новый датафрейм, игнорируя строки, содержащие значение _NA_. Используйте эту функцию для удаления строк с неполными данными.
+```{r}
+data.na.omit <- na.omit(data)
+```
+
+- Сколько строк было удалено?
+_`r nrow(data)[1] - nrow(data.na.omit)[1]` строк было удалено_
+
+- Соответствует ли результат выполнения, значениям из пункта 3? _Да_
+```{r}
+colSums(apply(data.na.omit, c(1,2), is.na))
+```
+
+### Новые дома
+- Переменная(колонка) _Built_2005_or_later_ содержит данные о проценте домов, построенных с 2005 года. Постройте диаграмму рассеяния (scatterplot)
+медианы стоимости домов (переменная _Median_house_value_) относительно процента новых домов.
+```{r}
+plot(data$Built_2005_or_later, data$Median_house_value, main="Медиана стоимости домов относительно процента новых домов", xlab = "% новых домов", ylab = "Медиана стоимости")
+```
+
+- Постройте ещё два графика для каждого из штатов отдельно. Номер штата содержится в переменной (_STATEFP_), где Калифорния 6-й штат, а Пенсильвания 42.
+```{r}
+plot(data$Built_2005_or_later[data$STATEFP==6], data$Median_house_value[data$STATEFP==6], main = "Калифорния", xlab = "% новых домов", ylab = "Медиана стоимости")
+plot(data$Built_2005_or_later[data$STATEFP==42], data$Median_house_value[data$STATEFP==42], main = "Пенсильвания", xlab = "% новых домов", ylab = "Медиана стоимости")
+```
+
+### Незанятые дома
+Уровень найма (vacancy rate) — доля домов, которые не были заняты. В данных содержатся колонки, содержащие общее количество домовладений и количество не занятых домовладений. 
+
+- В датафрейм _data_ добавьте новую колонку _vacancy_rate_, которая должна содержать вышеописанный показатель.
+```{r}
+data$vacancy_rate = data$Vacant_units / data$Total_units
+```
+
+- Найдите минимум, максимум, среднее и медиану полученных значений показателя.
+```{r}
+vacancy.rate <- na.omit(data$vacancy_rate)
+min(vacancy.rate)
+max(vacancy.rate)
+median(vacancy.rate)
+mean(vacancy.rate)
+```
+
+- Постройте диаграмму уровня найма относительно медианы стоимости домов. Что можно заметить?
+```{r}
+plot(data$Median_house_value, data$vacancy_rate, main="Уровень найма относительно медианы стоимости домов", xlab = "Медиана стоимости", ylab = "Уровень найма")
+```
+_Дешевые дома пользуются меньшим спросом_
+
+### Корреляция
+Колонка _COUNTYFP_ содержит числовой код округа внутри штата. Нас интересуют Butte County (округ 7 в Калифорнии), Santa Clara (округ 85 в Калифорнии) 
+и York County (округ 133 в Пенсильвании).
+
+- Объясните, что делает приведённый ниже код и как именно он это делает.
+```
+acc <- c()
+for (tract in 1:nrow(ca_pa)) {
+  if (ca_pa$STATEFP[tract] == 6) {
+    if (ca_pa$COUNTYFP[tract] == 1) {
+      acc <- c(acc, tract)
+    }
+  }
+}
+accmv <- c()
+for (tract in acc) {
+  accmv <- c(accmv, ca_pa[tract,10])
+}
+median(accmv)
+```
+
+Записываем в вектор acc номера строк с номером штата 6 и номером округа 1. Путем перебора вектора acc в вектор accmv записываем значение 10 колонки (Median_house_value), вычисляем медиану accmv
+
+- Напишите другим способом в одну строку, то же самое, что делает нижеуказанный код. Способов получить тот же ответ множество, достаточно одного.
+```{r}
+median(data$Median_house_value[data$STATEFP==6][data$COUNTYFP==1], na.rm=TRUE)
+```
+
+
+- Найдите средний процент построенных домовладений в округах Butte County, Santa Clara, York County
+Butte County
+```{r}
+mean(data$Total_units[data$STATEFP==6&data$COUNTYFP==7]/sum(data$Total_units[data$STATEFP==6]))
+```
+Santa Clara
+```{r}
+mean(data$Total_units[data$STATEFP==6&data$COUNTYFP==85]/sum(data$Total_units[data$STATEFP==6]))
+```
+York County
+```{r}
+mean(data$Total_units[data$STATEFP==42&data$COUNTYFP==133]/sum(data$Total_units[data$STATEFP==42]))
+```
+
+- Функция ``cor`` рассчитывает коэффициент корреляции между двумя переменными. Рассчитайте корреляцию между медианой стоимости домовладений (_Median_house_value_) и процентом построенных домов (_Built_2005_or_later_):
+
+  1. для всего набора данных
+```{r}
+cor(data.na.omit$Median_house_value, data.na.omit$Built_2005_or_later)
+```
+  
+  2. для Калифорнии
+```{r}
+cor(data.na.omit$Median_house_value[data.na.omit$STATEFP == 6], data.na.omit$Built_2005_or_later[data.na.omit$STATEFP == 6])
+```
+  3. для Пенсильвании
+```{r}
+cor(data.na.omit$Median_house_value[data.na.omit$STATEFP == 42], data.na.omit$Built_2005_or_later[data.na.omit$STATEFP == 42])
+```
+  4. для округа Butte County
+```{r}
+cor(data.na.omit$Median_house_value[data.na.omit$STATEFP == 6&data.na.omit$COUNTYFP==7], data.na.omit$Built_2005_or_later[data.na.omit$STATEFP == 6&data.na.omit$COUNTYFP==7])
+```
+  5. для округа Santa Clara
+```{r}
+cor(data.na.omit$Median_house_value[data.na.omit$STATEFP == 6&data.na.omit$COUNTYFP==85], data.na.omit$Built_2005_or_later[data.na.omit$STATEFP == 6&data.na.omit$COUNTYFP==85])
+```
+  6. для округа York County
+```{r}
+cor(data.na.omit$Median_house_value[data.na.omit$STATEFP == 42&data.na.omit$COUNTYFP==133], data.na.omit$Built_2005_or_later[data.na.omit$STATEFP == 42&data.na.omit$COUNTYFP==133])
+```
+
+- Постройте три диаграммы медианы стоимости домовладений (_Median_house_value_) относительно медианы дохода (_Median_household_income_) для трёх округов. Допустимо указать все три на одном графике.
+```{r}
+plot(data$Median_household_income[data$STATEFP==6&data$COUNTYFP==7], data$Median_house_value[data$STATEFP==6&data$COUNTYFP==7], xlab = "Медиана дохода", ylab = "Стоимость домовладений", main="Butte County")
+
+plot(data$Median_household_income[data$STATEFP==6&data$COUNTYFP==85], data$Median_house_value[data$STATEFP==6&data$COUNTYFP==85], xlab = "Медиана дохода", ylab = "Стоимость домовладений", main="Santa Clara")
+
+plot(data$Median_household_income[data$STATEFP==42&data$COUNTYFP==133], data$Median_house_value[data$STATEFP==42&data$COUNTYFP==133], xlab = "Медиана дохода", ylab = "Стоимость домовладений", main="York County")
+```

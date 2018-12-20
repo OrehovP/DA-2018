@@ -1,0 +1,183 @@
+# Лабораторная работа 5
+Студент: Орехов Павел Вадимович, гр. РИ-450004
+
+####1. Загрузим данные
+```{r}
+data = read.csv("diet.csv",row.names=1)
+```
+
+
+####2. Ознакомимся со структурой и переименуем колонки (https://www.sheffield.ac.uk/polopoly_fs/1.547015!/file/Diet_data_description.docx)
+```{r}
+colnames(data) <- c("gender", "age", "height", "initial.weight", 
+                    "diet.type", "final.weight")
+data$gender <- factor(c("Female", "Male")[data$gender+1], exclude = NA)
+data$diet.type <- factor(c("A", "B", "C")[data$diet.type])
+
+summary(data)
+```
+
+
+####3. Добавим новую колонку - Похудение
+```{r}
+data$weight.loss = data$initial.weight - data$final.weight
+```
+
+
+####4. Проанализиуем есть ли различия по типам диет
+```{r}
+boxplot(weight.loss~diet.type,data=data,col="light gray",
+        ylab = "Weight loss (kg)", xlab = "Diet type")
+abline(h=0,col="green")
+```
+
+####5. Проверим сбалансированные ли данные
+```{r}
+table(data$diet.type)
+```
+
+
+####6. Построим график групповых средних
+```{r include=FALSE}
+library(gplots)
+```
+```{r}
+plotmeans(weight.loss ~ diet.type, data=data)
+aggregate(data$weight.loss, by = list(data$diet.type), FUN=sd)
+```
+
+
+####7. Для подгонки ANOVA модели используем функцию aov, частный случай линейной модели lm
+#####Тест на межгрупповые различия
+```{r}
+fit <- aov(weight.loss ~ diet.type, data=data)
+summary(fit)
+```
+
+
+#####Попарные различия между средними значениями для всех групп
+```{r}
+TukeyHSD(fit)
+```
+
+
+#####Tukey honest significant differences test
+```{r include=FALSE}
+library(multcomp)
+```
+```{r}
+par(mar=c(5,4,6,2))
+tuk <- glht(fit, linfct=mcp(diet.type="Tukey"))
+plot(cld(tuk, level=.05),col="lightgrey")
+```
+
+
+####8. Добавим проверку на выбросы и избавимся от них
+```{r}
+data.noout <- data[(data$diet.type == "A"&data$weight.loss<=8)|data$diet.type == "B"|data$diet.type == "C",]
+boxplot(weight.loss~diet.type,data=data.noout,col="light gray",
+        ylab = "Weight loss (kg)", xlab = "Diet type")
+abline(h=0,col="green")
+```
+
+
+####9. Повторно проведем все тесты и сравним результаты с выбросами и без
+#####Тест на межгрупповые различия
+```{r}
+fit.noout <- aov(weight.loss ~ diet.type, data=data.noout)
+summary(fit.noout)
+```
+
+
+#####Попарные различия между средними значениями для всех групп
+```{r}
+TukeyHSD(fit.noout)
+```
+
+
+#####Tukey honest significant differences test
+```{r include=FALSE}
+library(multcomp)
+```
+```{r}
+par(mar=c(5,4,6,2))
+tuk.noout <- glht(fit.noout, linfct=mcp(diet.type="Tukey"))
+plot(cld(tuk.noout, level=.05),col="lightgrey")
+```
+_Заметного различия между результатами до удаления выбросов не замечено. Диеты А и В поменялись местами по эффективности, но диета С осталась лучшей_
+
+
+####Открыть документ https://www.sheffield.ac.uk/polopoly_fs/1.547015!/file/Diet_data_description.docx и попытаться выполнить задания из него
+#####1. Paired t-test
+Ignore diet and test to see if weight has been lost
+```{r}
+t.test(data$weight.loss[])
+```
+
+#####2. Compute variable
+Remove weight lost and get students to calculate it using before/after weights
+```{r}
+
+```
+
+#####3. Summary statistics
+Summary statistics by diet
+```{r include=FALSE}
+library('dplyr')
+data %>% group_by(diet.type) %>% summarize(mean=mean(weight.loss), sd=sd(weight.loss))
+```
+
+#####5. Two-way ANOVA
+Effect of diet and gender on weight lost
+```{r}
+#Определим зависимость потери веса от пола
+
+data.gender.noout<-data[!is.na(data$gender),]
+
+#График групповых средних
+plotmeans(weight.loss ~ gender, data=data.gender.noout)
+aggregate(data.gender.noout$weight.loss, by = list(data.gender.noout$gender), FUN=sd)
+
+#тест на межгрупповые различия
+fit.noout <- aov(weight.loss ~ gender, data=data.gender.noout)
+summary(fit.noout)
+
+#попарные различия между средними значениями для всех групп
+TukeyHSD(fit.noout)
+
+#Tukey honest significant differences test
+par(mar=c(5,4,6,2))
+tuk.noout <- glht(fit.noout, linfct=mcp(gender="Tukey"))
+plot(cld(tuk.noout, level=.05),col="lightgrey")
+```
+_Количество потерянного веса практически не зависит от пола_
+
+```{r}
+#Построим диаграммы размаха для всех комбинаций диеты и пола
+
+boxplot(weight.loss ~ gender * diet.type, data=data.gender.noout, col = c("#ffa8af", "#42aaff"), ylab="Weight Loss")
+
+#тест на межгрупповые различия
+fit.noout <- aov(weight.loss ~ diet.type*gender, data=data.gender.noout)
+summary(fit.noout)
+
+#Tukey honest significant differences test
+TukeyHSD(fit.noout)
+```
+
+_ По графикам видно, что для женщин диета С лучше, чем диеты А и В. Для мужчин самой эффективными диетами стали диеты В и С._
+
+#####6. Interactions
+Means plot of weight lost by diet and gender
+```{r}
+interaction.plot(data$diet.type,data$gender,data$weight.loss,type="b",col=c(2,4),leg.bty="n",pch=c(1,2),xlab="Diet",ylab="Weight loss",main="Interaction plot")
+```
+
+#####7. ANCOVA
+```{r}
+#Ковариационный анализ (ANCOVA)
+fit <- aov(weight.loss ~ diet.type+height, data=data.noout)
+summary(fit)
+```
+
+_При добавлении высоты в качестве ковариаты оказалось, что высота человека не оказывает существенного влияние на снижение веса_

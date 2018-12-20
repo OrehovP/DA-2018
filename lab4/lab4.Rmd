@@ -1,0 +1,88 @@
+# Лабораторная работа 4
+Студент: Орехов Павел Вадимович, гр. РИ-450004
+
+####1. Проанализируем данные о возрасте и физических характеристиках моюсков (https://archive.ics.uci.edu/ml/datasets/abalone)
+```{r}
+data <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data")
+colnames(data) <- c("sex", "length", "diameter", "height", 
+                "whole_weight", "shucked_weight",
+                "viscera_weight", "shell_weight", "rings")
+data$sex <- factor(c("Female", "Infant", "Male")[data$sex])
+summary(data)
+par(mfrow=c(1,3)) 
+hist(data$diameter, main = "Диаметр, мм")
+hist(data$height, main = "Высота, мм")
+hist(data$whole_weight, main = "Полный вес, гр")
+```
+
+
+####2. Визулизируем возможные зависимости
+```{r}
+par(mfrow=c(1,3)) 
+plot(data$diameter, data$whole_weight, main = "Зависимость веса от диаметра")
+plot(data$height, data$whole_weight, main = "Зависимость веса от высоты")
+plot(data$length, data$whole_weight, main = "Зависимость веса от длины")
+```
+
+
+####3. Построим линейные модели при помощи функции lm, посмотрим их характеристики
+```{r}
+linear.model.diameter <- lm (whole_weight ~ diameter, data=data)
+linear.model.diameter
+summary(linear.model.diameter)
+plot(linear.model.diameter)
+
+linear.model.height <- lm (whole_weight ~ height, data=data)
+linear.model.height
+summary(linear.model.height)
+plot(linear.model.height)
+```
+_Видим, что p-value очень маленькое => зависимость есть. Судя по R-squared зависимость от диаметра лучше._
+
+
+#### 4. Избавимся от выборосов, построим ещё модели и проверим их
+```{r}
+data.noout <- data[data$height <= 0.25 & data$height > 0,]
+
+linear.model.diameter.noout <- lm (whole_weight ~ diameter, data=data.noout)
+linear.model.diameter.noout
+summary(linear.model.diameter.noout)
+plot(linear.model.diameter.noout)
+
+linear.model.height.noout <- lm (whole_weight ~ height, data=data.noout)
+linear.model.height.noout
+summary(linear.model.height.noout)
+plot(linear.model.height.noout)
+```
+_Качество модели по высоте значительно улучшилось_
+```{r}
+linear.model.noout <- lm (whole_weight ~ +diameter +height +length , data=data.noout)
+linear.model.noout
+summary(linear.model.noout)
+plot(linear.model.noout)
+```
+_Качество модели по трем параметрам хорошее_
+
+
+#### 5. Разделим массив данных на 2 случайные части
+```{r}
+odds <- seq(1, nrow(data.noout), by=2)
+data.in <- data.noout[odds,]
+data.out <- data.noout[-odds,]
+```
+
+
+#### 6. Подгоним модели по первой части
+```{r}
+linear.model.in <- lm (whole_weight ~ +diameter +height +length, data=data.in)
+summary (linear.model.in)
+```
+
+
+#### 7. Cпрогнозируем значения во второй части и проверим качество прогноза
+```{r}
+data.predict.out <- predict (linear.model.in, data.out)
+cor (data.out$whole_weight, data.predict.out)
+plot (data.out$whole_weight, data.predict.out)
+```
+_Предсказание близко к реальному значению веса_
